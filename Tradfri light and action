@@ -22,11 +22,9 @@ blueprint:
     light:
       name: Light(s)
       description: The light(s) to control
+      default: []
       selector:
         action: {}
-        target:
-          entity:
-            domain: light
     force_brightness:
       name: Force turn on brightness
       description:
