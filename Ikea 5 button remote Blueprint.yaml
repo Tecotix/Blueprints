@@ -26,8 +26,8 @@ blueprint:
         target:
           entity:
             domain: light
-			domain: switch
-			domain: binary_sensor
+	    domain: switch
+	    domain: binary_sensor
     force_brightness:
       name: Force turn on brightness
       description:
