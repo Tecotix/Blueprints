@@ -1,7 +1,13 @@
 blueprint:
-  name: deCONZ - IKEA five button remote
-  description: 'Control anything using IKEA five button remote
+  name: deCONZ - IKEA five button remote for lights
+  description: 'Control lights with an IKEA five button remote (the round ones).
 
+
+    The middle "on" button, toggle the lights on/off to the last set brightness (unless the force brightness is toggled on in the blueprint).
+
+    Dim up/down buttons will change the brightness smoothly and can be pressed and hold until the brightness is satisfactory.
+
+    The "left" and "right" buttons can be assigned to an short and long button press action. This allows you to assign, e.g., a scene or anything else.
     '
   domain: automation
   input:
@@ -13,42 +19,36 @@ blueprint:
           integration: deconz
           manufacturer: IKEA of Sweden
           model: TRADFRI remote control
-    button_on_off_short:
-      name: On off button short press
-      description: Action to run on press on off button
-      default: []
+    light:
+      name: Light(s)
+      description: The light(s) to control
       selector:
-        action: {}
-    button_on_off_long:
-      name: On off button long press
-      description: Action to run on press on off button
-      default: []
+        target:
+          entity:
+            domain: light
+			domain: switch
+			domain: binary_sensor
+    force_brightness:
+      name: Force turn on brightness
+      description:
+        'Force the brightness to the set level below, when the "on" button
+        on the remote is pushed and lights turn on.
+
+        '
+      default: false
       selector:
-        action: {}
-    button_brightness_up_short:
-      name: Brightness up button - short press
-      description: Action to run on short brightness up press
-      default: []
+        boolean: {}
+    brightness:
+      name: Brightness
+      description: Brightness of the light(s) when turning on
+      default: 50
       selector:
-        action: {}
-    button_brightness_up_long:
-      name: Brightness up button - long press
-      description: Action to run on long brightness up press
-      default: []
-      selector:
-        action: {}
-    button_brightness_down_short:
-      name: Brightness down button - short press
-      description: Action to run on short brightness down press
-      default: []
-      selector:
-        action: {}
-    button_brightness_down_long:
-      name: Brightness down button - long press
-      description: Action to run on long brightness down press
-      default: []
-      selector:
-        action: {}
+        number:
+          min: 0.0
+          max: 100.0
+          mode: slider
+          step: 1.0
+          unit_of_measurement: "%"
     button_left_short:
       name: Left button - short press
       description: Action to run on short left button press
@@ -75,42 +75,82 @@ blueprint:
         action: {}
 mode: restart
 max_exceeded: silent
+variables:
+  force_brightness: !input "force_brightness"
 trigger:
-- platform: event
-  event_type: deconz_event
-  event_data:
-    device_id: !input 'remote'
+  - platform: event
+    event_type: deconz_event
+    event_data:
+      device_id: !input "remote"
 action:
-- variables:
-    event: ''
-- choose:
-  - conditions:
-    - ''
-    sequence: !input 'button_on_off_short'
-  - conditions:
-    - ''
-    sequence: !input 'button_on_off_long'
-  - conditions:
-    - ''
-    sequence: !input 'button_brightness_up_short'
-  - conditions:
-    - ''
-    sequence: !input 'button_brightness_up_long'
-  - conditions:
-    - ''
-    sequence: !input 'button_brightness_down_short'
-  - conditions:
-    - ''
-    sequence: !input 'button_brightness_down_long'
-  - conditions:
-    - ''
-    sequence: !input 'button_left_short'
-  - conditions:
-    - ''
-    sequence: !input 'button_left_long'
-  - conditions:
-    - ''
-    sequence: !input 'button_right_short'
-  - conditions:
-    - ''
-    sequence: !input 'button_right_long'
+  - variables:
+      event: "{{ trigger.event.data.event }}"
+  - choose:
+      - conditions:
+          - "{{ event == 1002 }}"
+        sequence:
+          - choose:
+              - conditions: "{{ force_brightness }}"
+                sequence:
+                  - service: light.toggle
+                    target: !input "light"
+                    data:
+                      transition: 1
+                      brightness_pct: !input "brightness"
+            default:
+              - service: light.toggle
+                target: !input "light"
+                data:
+                  transition: 1
+      - conditions:
+          - "{{ event == 2002 }}"
+        sequence:
+          - service: light.turn_on
+            target: !input "light"
+            data:
+              brightness_step_pct: 10
+              transition: 1
+      - conditions:
+          - "{{ event == 2001 }}"
+        sequence:
+          - repeat:
+              count: 10
+              sequence:
+                - service: light.turn_on
+                  target: !input "light"
+                  data:
+                    brightness_step_pct: 10
+                    transition: 1
+                - delay: 1
+      - conditions:
+          - "{{ event == 3002 }}"
+        sequence:
+          - service: light.turn_on
+            target: !input "light"
+            data:
+              brightness_step_pct: -10
+              transition: 1
+      - conditions:
+          - "{{ event == 3001 }}"
+        sequence:
+          - repeat:
+              count: 10
+              sequence:
+                - service: light.turn_on
+                  target: !input "light"
+                  data:
+                    brightness_step_pct: -10
+                    transition: 1
+                - delay: 1
+      - conditions:
+          - "{{ event == 4002 }}"
+        sequence: !input "button_left_short"
+      - conditions:
+          - "{{ event == 4001 }}"
+        sequence: !input "button_left_long"
+      - conditions:
+          - "{{ event == 5002 }}"
+        sequence: !input "button_right_short"
+      - conditions:
+          - "{{ event == 5001 }}"
+        sequence: !input "button_right_long"
